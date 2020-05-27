@@ -1,0 +1,59 @@
+cc_library_shared {
+    name: "vendor.masaki.hardware.camera.provider@2.4-impl",
+    relative_install_path: "hw",
+    proprietary: true,
+    srcs: [
+        "MyCameraProvider.cpp",
+    ],
+    shared_libs: [
+        "libhidlbase",
+        "libhidltransport",
+        "libutils",
+        "vendor.masaki.hardware.camera.provider@2.4",
+        "android.hardware.camera.provider@2.4",
+        "vendor.masaki.hardware.camera.device@3.3",
+        "vendor.masaki.hardware.camera.device@3.3-impl",
+    ],
+    header_libs: [
+        "camera.device@3.3-impl_headers",
+    ],
+    export_include_dirs: [
+        ".",
+    ]
+}
+
+cc_defaults {
+    name: "camera_service_defaults",
+    defaults: ["hidl_defaults"],
+    proprietary: true,
+    relative_install_path: "hw",
+    srcs: ["service.cpp"],
+    shared_libs: [
+        "libbinder",
+        "libcamera_metadata",
+        "libhardware",
+        "libhidlbase",
+        "liblog",
+        "libutils",
+        "libhidltransport",
+        "libhwbinder",
+        "libbase",
+        "libcutils",
+        "android.hardware.camera.provider@2.4",
+        "vendor.masaki.hardware.camera.provider@2.4",
+        "vendor.masaki.hardware.camera.provider@2.4-impl",
+    ],
+    static_libs: [
+        "android.hardware.camera.common@1.0-helper",
+    ],
+    header_libs: [
+        "camera.device@3.3-impl_headers",
+    ],
+}
+
+cc_binary {
+    name: "vendor.masaki.hardware.camera.provider@2.4-service",
+    defaults: ["camera_service_defaults"],
+    compile_multilib: "32",
+    init_rc: ["vendor.masaki.hardware.camera.provider@2.4-service.rc"],
+}

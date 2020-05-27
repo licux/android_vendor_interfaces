@@ -1,0 +1,7 @@
+package vendor.masaki.hardware.camera.provider@2.4;
+
+import android.hardware.camera.provider@2.4::ICameraProvider;
+
+interface IMyCameraProvider extends @2.4::ICameraProvider{
+
+};

@@ -1,0 +1,7 @@
+package vendor.masaki.hardware.camera.device@3.3;
+
+import android.hardware.camera.device@3.3::ICameraDeviceSession;
+
+interface IMyCameraDeviceSession extends @3.3::ICameraDeviceSession{
+
+};

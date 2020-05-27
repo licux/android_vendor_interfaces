@@ -1,0 +1,42 @@
+cc_library_headers {
+    name: "camera.device@3.3-impl_headers",
+    vendor: true,
+    export_include_dirs: ["."]
+}
+
+cc_library_shared {
+    name: "vendor.masaki.hardware.camera.device@3.3-impl",
+    relative_install_path: "hw",
+    proprietary: true,
+    srcs: [
+        "MyCameraDevice.cpp",
+        "MyCameraDeviceCallback.cpp",
+        "MyCameraDeviceSession.cpp",
+    ],
+    shared_libs: [
+        "liblog",
+        "libhidlbase",
+        "libhidltransport",
+        "libui",
+        "libutils",
+        "libcutils",
+        "libfmq",
+        "libhardware",
+        "libcamera_client",
+        "libcamera_metadata",
+        "android.hardware.graphics.allocator@2.0",
+        "android.hardware.graphics.mapper@2.0",
+        "vendor.masaki.hardware.camera.device@3.3",
+        "android.hardware.camera.device@3.2",
+        "android.hardware.camera.device@3.3",
+        "libpng",
+    ],
+    header_libs: [
+        "libnativebase_headers",
+    ],
+    static_libs: [
+        "libarect",
+        "libgrallocusage",
+        "android.hardware.camera.common@1.0-helper",
+    ],
+}
