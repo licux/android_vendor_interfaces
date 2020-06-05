@@ -30,6 +30,7 @@ using ::android::hardware::camera::device::V3_2::BufferStatus;
 using ::android::hardware::camera::device::V3_2::BufferCache;
 using ::android::hardware::camera::device::V3_2::CaptureResult;
 using ::android::hardware::camera::device::V3_2::StreamBuffer;
+using ::android::hardware::camera::device::V3_2::CameraMetadata;
 
 const int MyCameraDeviceSession::BUFFER_MAX = 4;
 const int MyCameraDeviceSession::FRAMERATE = 30;
@@ -39,7 +40,8 @@ MyCameraDeviceSession::MyCameraDeviceSession(const sp<android::hardware::camera:
     this->fd = fd;
 
     isCapturing = false;
-    partialResult = 1;
+
+    initializeOutputThread();
 }
 
 // Methods from ::android::hardware::camera::device::V3_2::ICameraDeviceSession follow.
@@ -208,7 +210,8 @@ Return<void> MyCameraDeviceSession::processCaptureRequest(const hidl_vec<::andro
     android::GraphicBufferMapper::get().unlock(handle);
     android::GraphicBufferMapper::get().freeBuffer(handle);
 
-    notifyCaptureResult(requests[0].frameNumber, &requests[0].outputBuffers[0].buffer);
+    outputThread->request(requests[0].frameNumber, &requests[0].outputBuffers[0].buffer, metadata, true);
+    // notifyCaptureResult(requests[0].frameNumber, &requests[0].outputBuffers[0].buffer);
 
     _hidl_cb(Status::OK, numRequestProcessed);
     return Void();
@@ -230,7 +233,9 @@ Return<::android::hardware::camera::common::V1_0::Status> MyCameraDeviceSession:
 }
 
 Return<void> MyCameraDeviceSession::close() {
-    // TODO implement
+    
+    closeOutputThread();
+
     return Void();
 }
 
@@ -239,6 +244,82 @@ Return<void> MyCameraDeviceSession::close() {
 Return<void> MyCameraDeviceSession::configureStreams_3_3(const ::android::hardware::camera::device::V3_2::StreamConfiguration& requestedConfiguration, configureStreams_3_3_cb _hidl_cb) {
     // TODO implement
     return Void();
+}
+
+void MyCameraDeviceSession::initializeOutputThread(){
+    outputThread = new OutputThread(callback.get());
+    outputThread->run("RequestQueue", android::PRIORITY_DISPLAY);
+}
+
+void MyCameraDeviceSession::closeOutputThread(){
+    outputThread->requestExit();
+    outputThread->join();
+    outputThread.clear();
+}
+
+
+MyCameraDeviceSession::OutputThread::OutputThread(IMyCameraDeviceCallback::ICameraDeviceCallback* callback){
+    this->callback = callback;
+    partialResult = 1;
+    LOGD("OutputThread was initialized.");
+}
+
+MyCameraDeviceSession::OutputThread::~OutputThread(){
+
+}
+
+Status MyCameraDeviceSession::OutputThread::request(uint32_t frameNumber, const hidl_handle* handle, CameraMetadata  metadata, bool flush){
+        // struct CaptureResult {
+    //     uint32_t frameNumber;
+    //     uint64_t fmqResultSize;
+    //     CameraMetadata result;
+    //     vec<StreamBuffer> outputBuffers;
+    //     StreamBuffer inputBuffer;
+    //     uint32_t partialResult;
+    // };
+    // struct StreamBuffer {
+    //     int32_t streamId;
+    //     uint64_t bufferId;
+    //     handle buffer;
+    //     BufferStatus status;
+    //     handle acquireFence;
+    //     handle releaseFence;
+    // };
+    StreamBuffer outputBuffer = {0, 0, *handle, BufferStatus::OK, nullptr, nullptr};
+    hidl_vec<StreamBuffer> outputBuffers = { outputBuffer };
+    StreamBuffer emptyInputBuffer = {-1, 0, nullptr, BufferStatus::ERROR, nullptr, nullptr};
+    CaptureResult result  = {frameNumber, 0, metadata, outputBuffers, emptyInputBuffer, partialResult++};
+    requestList.push_back(result);
+
+    // hidl_vec<CaptureResult> results = { result };
+    if(flush == true){
+        std::unique_lock<std::mutex> lock(mutex);
+
+        hidl_vec<CaptureResult> results;
+        results.resize(requestList.size());
+        for(int i = 0; i < requestList.size(); i++){
+            results[i] = requestList[i];
+        }
+        resultList.push_back(results);
+        requestList.clear();
+        LOGD("Results registered!");
+    }
+
+    return Status::OK;
+}
+
+bool MyCameraDeviceSession::OutputThread::threadLoop(){
+    LOGD("OutputThread start!");
+
+    if(resultList.size() != 0){
+        std::unique_lock<std::mutex> lock(mutex);
+        LOGD("Request is queued!");
+        // std::vector<hidl_vec<::android::hardware::camera::device::V3_2::CaptureResult>> it = requestList.begin();
+        for(int i = 0; i < resultList.size(); i++){
+            callback->processCaptureResult(resultList[i]);
+        }
+    }
+    return true;
 }
 
 int MyCameraDeviceSession::allocateBuffer(){
@@ -388,13 +469,13 @@ int MyCameraDeviceSession::notifyCaptureResult(uint32_t frameNumber, const hidl_
     //     handle acquireFence;
     //     handle releaseFence;
     // };
-    StreamBuffer outputBuffer = {0, 0, *handle, BufferStatus::OK, nullptr, nullptr};
-    hidl_vec<StreamBuffer> outputBuffers = { outputBuffer };
-    StreamBuffer emptyInputBuffer = {-1, 0, nullptr, BufferStatus::ERROR, nullptr, nullptr};
-    CaptureResult result  = {frameNumber, 0, metadata, outputBuffers, emptyInputBuffer, partialResult++};
-    hidl_vec<CaptureResult> results = { result };
+    // StreamBuffer outputBuffer = {0, 0, *handle, BufferStatus::OK, nullptr, nullptr};
+    // hidl_vec<StreamBuffer> outputBuffers = { outputBuffer };
+    // StreamBuffer emptyInputBuffer = {-1, 0, nullptr, BufferStatus::ERROR, nullptr, nullptr};
+    // CaptureResult result  = {frameNumber, 0, metadata, outputBuffers, emptyInputBuffer, partialResult++};
+    // hidl_vec<CaptureResult> results = { result };
 
-    callback->processCaptureResult(results);
+    // callback->processCaptureResult(results);
 
     return 0;
 }

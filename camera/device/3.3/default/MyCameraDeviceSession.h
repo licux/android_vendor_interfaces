@@ -3,8 +3,11 @@
 
 #include <vendor/masaki/hardware/camera/device/3.3/IMyCameraDevice.h>
 #include <vendor/masaki/hardware/camera/device/3.3/IMyCameraDeviceSession.h>
+#include <vendor/masaki/hardware/camera/device/3.3/IMyCameraDeviceCallback.h>
 #include <hidl/MQDescriptor.h>
 #include <hidl/Status.h>
+#include <list>
+#include "utils/Thread.h"
 
 // #include "HandleImporter.h"
 
@@ -40,6 +43,26 @@ struct MyCameraDeviceSession : public IMyCameraDeviceSession {
     // Methods from ::android::hardware::camera::device::V3_3::ICameraDeviceSession follow.
     Return<void> configureStreams_3_3(const ::android::hardware::camera::device::V3_2::StreamConfiguration& requestedConfiguration, configureStreams_3_3_cb _hidl_cb) override;
 
+    void initializeOutputThread();
+    void closeOutputThread();
+
+    class OutputThread : public android::Thread{
+    public:
+        OutputThread(IMyCameraDeviceCallback::ICameraDeviceCallback* callback);
+        ~OutputThread();
+        ::android::hardware::camera::common::V1_0::Status request(uint32_t frameNumber, const android::hardware::hidl_handle* handle, ::android::hardware::camera::device::V3_2::CameraMetadata metadata, bool flush);
+
+        virtual bool threadLoop() override;
+    
+    private:
+        std::vector<::android::hardware::camera::device::V3_2::CaptureResult> requestList;
+        std::vector<hidl_vec<::android::hardware::camera::device::V3_2::CaptureResult>> resultList;
+        android::hardware::camera::device::V3_2::ICameraDeviceCallback* callback;
+
+        uint32_t partialResult;
+        std::mutex mutex;
+    };
+
     // Methods from ::android::hidl::base::V1_0::IBase follow.
 private:
     int allocateBuffer();
@@ -60,7 +83,8 @@ private:
     sp<android::hardware::camera::device::V3_2::ICameraDeviceCallback> callback;
 
     ::android::hardware::camera::device::V3_2::CameraMetadata  metadata;
-    uint32_t partialResult;
+
+    sp<OutputThread> outputThread;
 
     /* camera device file descriptor */
     int fd;

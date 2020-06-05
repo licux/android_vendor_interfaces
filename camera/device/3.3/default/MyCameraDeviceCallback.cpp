@@ -26,7 +26,7 @@ namespace implementation {
 
 // Methods from ::android::hardware::camera::device::V3_2::ICameraDeviceCallback follow.
 Return<void> MyCameraDeviceCallback::processCaptureResult(const hidl_vec<::android::hardware::camera::device::V3_2::CaptureResult>& results) {
-    LOGD("processCaptureResult is called!");
+    LOGD("processCaptureResult is called! : %d", results[0].frameNumber);
     
     int width = 1280;
     int height = 720;
@@ -41,7 +41,11 @@ Return<void> MyCameraDeviceCallback::processCaptureResult(const hidl_vec<::andro
 
     type = PNG_COLOR_TYPE_RGB;
 
-    FILE *file = fopen("/data/local/tmp/test.png", "wb");
+    std::stringstream ss;
+    ss << "/data/local/tmp/" << results[0].frameNumber << ".png";
+    // int frameNumber = results[0].frameNumber;
+    // std::string file_name = "/data/local/tmp/" << std::to_string(frameNumber).c_str() << ".png";
+    FILE *file = fopen(ss.str().c_str(), "wb");
     if(file == NULL){
         LOGE("File was not opened!");
         return Void();
